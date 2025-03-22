@@ -982,18 +982,24 @@ async fn process_udp_packet(
             }
         }
     } else {
-        let (mut entry, is_new) = match fragments.entry(packet_id) {
-            Entry::Occupied(entry) => (entry, false),
-            Entry::Vacant(v) => (
-                v.insert_entry(FragmentedPacket {
-                    fragment_count: frag_total,
-                    fragment_received: 0,
-                    packet_len: 0,
-                    received: vec![None; frag_total as usize],
-                    remote_location: remote_location.clone(),
-                }),
-                true,
-            ),
+        let mut is_new = false;
+        let mut entry = if let Entry::Occupied(entry) = fragments.entry(packet_id) {
+            entry
+        } else {
+            is_new = true;
+            fragments.insert(packet_id, FragmentedPacket {
+                fragment_count: frag_total,
+                fragment_received: 0,
+                packet_len: 0,
+                received: vec![None; frag_total as usize],
+                remote_location: remote_location.clone(),
+            });
+            
+            // Теперь получаем OccupiedEntry для только что вставленного значения
+            match fragments.entry(packet_id) {
+                Entry::Occupied(entry) => entry,
+                Entry::Vacant(_) => unreachable!("Just inserted, can't be vacant"),
+            }
         };
 
         let packet = entry.get_mut();
